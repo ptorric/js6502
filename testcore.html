@@ -1,0 +1,123 @@
+<html>
+<body>
+
+<script src="core.js">
+</script>
+
+<script>
+function addr2hex( addr ) {
+  return num2hex((addr>>8)&0xff)+num2hex(addr&0xff);
+}
+
+function num2hex( nr ) {
+  str = "0123456789abcdef";
+  hi = ((nr&0xf0)>>4);
+  lo = (nr&15);
+  return str.substring( hi, hi+1  ) + str.substring( lo, lo+1 );
+}
+
+function dumpreg(cpu)
+{
+//	document.write("registers:<br>");
+	document.write("A:"+num2hex(cpu.regA)+" X:"+num2hex(cpu.regX)+" Y:"+num2hex(cpu.regY)+"<br>");
+	document.write("P:"+num2hex(cpu.regP)+" PC:"+addr2hex(cpu.regPC)+" SP:"+addr2hex(cpu.regSP)+"<br>");
+	// NVxBDIZC
+	reg=cpu.regP;
+	status="NVxBDIZC";
+	i1=0x80;
+	document.write("status register:");
+	for (i=0;i<8;i++)
+	{
+		if (reg&i1)
+			document.write(status[i]);
+		else
+			document.write("-");
+		i1=i1>>1;
+	}
+	document.write("<br>");
+	document.write("<br>");
+}
+
+function debug(val)
+{
+	document.write(val+"<br>");
+}
+function debughex(val)
+{
+	document.write(num2hex(val)+"<br>");
+}
+function debughex2(val)
+{
+	document.write(addr2hex(val)+"<br>");
+}
+
+mycpu=new cpu();
+mycpu.reset();
+debug("dump registers");
+dumpreg(mycpu);
+
+debug("memory test: 2 pop bytes and 2 pop words, must be 01 02 0100 0001");
+
+mycpu.memory[0x600]=0x01;
+mycpu.memory[0x601]=0x02;
+mycpu.memory[0x602]=0x00;
+mycpu.memory[0x603]=0x01;
+mycpu.memory[0x604]=0x01;
+mycpu.memory[0x605]=0x00;
+
+debug(num2hex(mycpu.popByte()));
+debug(num2hex(mycpu.popByte()));
+debug(addr2hex(mycpu.popWord()));
+debug(addr2hex(mycpu.popWord()));
+
+debug("memory test: storebyte popbyte (must be f0) memreadbyte (f0)");
+mycpu.reset();
+mycpu.memStoreByte(0x600,0xF0);
+debughex(mycpu.popByte());
+debughex(mycpu.memReadByte(0x600));
+
+debug("stack test: stackpush of 12, 2 memreadbyte (12 00)");
+mycpu.stackPush(0x12);
+debughex(mycpu.memReadByte(0x1ff));
+debughex(mycpu.memReadByte(0x1fe));
+debug("stack test: stackpush of 12, 2 memreadbyte (12 13)");
+mycpu.stackPush(0x13);
+debughex(mycpu.memReadByte(0x1ff));
+debughex(mycpu.memReadByte(0x1fe));
+
+debug("stack test: 3xstackpop(13 12 error 00)");
+debughex(mycpu.stackPop());
+debughex(mycpu.stackPop());
+debughex(mycpu.stackPop());
+
+debug("cpu test: register before, LDA #0x23, register after (A:23 PC:0602)");
+mycpu.reset();
+dumpreg(mycpu);
+mycpu.memStoreByte(0x600,0xA9);
+mycpu.memStoreByte(0x601,0x23);
+mycpu.codeRunning=true;
+mycpu.execute();
+dumpreg(mycpu);
+debug("cpu test: STA $0001, register after (A:23 PC:0605)");
+mycpu.memStoreByte(0x602,0x8d);
+mycpu.memStoreByte(0x603,0x01);
+mycpu.memStoreByte(0x604,0x00);
+debug("cpu test: dump mem on 0x0001 (23)");
+mycpu.codeRunning=true;
+mycpu.execute();
+dumpreg(mycpu);
+debughex(mycpu.memReadByte(0x0001));
+debug("cpu test: LDA #00, flag Z");
+mycpu.memStoreByte(0x605,0xA9);
+mycpu.memStoreByte(0x606,0x00);
+mycpu.execute();
+dumpreg(mycpu);
+debug("cpu test: LDA #0x80, flag N");
+mycpu.memStoreByte(0x607,0xA9);
+mycpu.memStoreByte(0x608,0x80);
+mycpu.execute();
+dumpreg(mycpu);
+
+</script>
+</body>
+</html>
